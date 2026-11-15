@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ART-Kalendersystem (Relativistische Zeitrechnung)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        space: {
+                            950: '#030712',
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155'
+                        },
+                        neon: {
+                            cyan: '#06b6d4',
+                            gold: '#f59e0b',
+                            purple: '#a855f7',
+                            emerald: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts Inter & Orbitron -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Three.js & OrbitControls CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #030712;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.72);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 25px rgba(6, 182, 212, 0.25);
+        }
+        .glow-gold {
+            box-shadow: 0 0 25px rgba(245, 158, 11, 0.35);
+        }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.2s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        @keyframes pulse-beat {
+            0%, 100% { transform: scale(1); opacity: 0.9; }
+            15% { transform: scale(1.12); opacity: 1; }
+            30% { transform: scale(1); opacity: 0.9; }
+        }
+        .quant-pulse {
+            animation: pulse-beat 0.864s infinite;
+        }
+        @keyframes highlight-flash {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 rgba(236, 72, 153, 0);
+                border-color: rgba(236, 72, 153, 0.4);
+            }
+            25%, 75% {
+                transform: scale(1.12);
+                box-shadow: 0 0 30px rgba(236, 72, 153, 0.9), inset 0 0 15px rgba(236, 72, 153, 0.5);
+                border-color: #f472b6;
+                background-color: rgba(219, 39, 119, 0.35);
+            }
+            50% {
+                transform: scale(1.04);
+                box-shadow: 0 0 15px rgba(6, 182, 212, 0.7);
+            }
+        }
+        .cell-flash-highlight {
+            animation: highlight-flash 0.85s ease-in-out 4;
+            z-index: 20;
+        }
+        .star-label {
+            position: absolute;
+            transform: translate(-50%, -125%);
+            pointer-events: none;
+            white-space: nowrap;
+            transition: opacity 0.2s ease;
+        }
+        /* CSS Fullscreen Fallback for Iframe Environments */
+        .fullscreen-fallback {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999 !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+        }
+        /* Custom Range Slider */
+        input[type="range"].art-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(30, 41, 59, 0.9);
+            height: 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        input[type="range"].art-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+            border: 2px solid #0f172a;
+        }
+        input[type="range"].art-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            box-shadow: 0 0 12px rgba(34, 211, 238, 0.8);
+            border: 2px solid #0f172a;
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030712;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+    </style>
+</head>
+<body class="text-slate-100 antialiased selection:bg-cyan-500 selection:text-slate-950 relative">
+
+    <!-- Animated Spacetime Canvas Background -->
+    <canvas id="spacetime-canvas" class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-60"></canvas>
+
+    <!-- Top Navigation / Header -->
+    <header class="sticky top-0 z-40 w-full glass-panel border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center glow-cyan">
+                    <i class="fa-solid fa-atom text-white text-lg animate-spin" style="animation-duration: 12s;"></i>
+                </div>
+                <div>
+                    <h1 class="orbitron text-lg sm:text-xl font-bold tracking-wider bg-gradient-to-r from-cyan-400 via-indigo-300 to-amber-400 bg-clip-text text-transparent">ART-KALENDER</h1>
+                    <p class="text-xs text-slate-400">Relativistische Zeitrechnung (Start: 25. Nov 1915)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-4">
+                <!-- Clock Mode Switcher -->
+                <div class="hidden sm:flex items-center bg-slate-900/90 border border-slate-700/60 rounded-full p-1 shadow-inner">
+                    <button id="btn-bio" onclick="setClockMode('bio')" class="px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-cyan-500 text-slate-950 shadow-md">
+                        <i class="fa-solid fa-heart-pulse mr-1.5"></i> Biologisch
+                    </button>
+                    <button id="btn-real" onclick="setClockMode('real')" class="px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-clock mr-1.5"></i> Echt-SI
+                    </button>
+                </div>
+
+                <!-- Info Button ("i") -->
+                <button onclick="openModal('info-modal')" class="w-10 h-10 rounded-full glass-panel flex items-center justify-center text-cyan-400 hover:text-white hover:bg-cyan-500/20 transition-all border border-cyan-500/30 hover:border-cyan-400 shadow-lg glow-cyan" title="Über das ART-System">
+                    <i class="fa-solid fa-info text-lg"></i>
+                </button>
+            </div>
+        </div>
+        <!-- Mobile Clock Mode Switcher -->
+        <div class="flex sm:hidden justify-center pb-3 px-4">
+            <div class="flex items-center bg-slate-900/90 border border-slate-700/60 rounded-full p-1 w-full max-w-xs justify-around">
+                <button id="btn-bio-m" onclick="setClockMode('bio')" class="flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-cyan-500 text-slate-950 text-center">Biologisch</button>
+                <button id="btn-real-m" onclick="setClockMode('real')" class="flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 text-center">Echt-SI</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- Live Clock & Status Section -->
+        <section class="glass-panel rounded-3xl p-6 sm:p-8 relative overflow-hidden glow-cyan border border-cyan-500/20">
+            <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="absolute -left-10 -top-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <!-- Left: Big Clock Display -->
+                <div class="lg:col-span-6 space-y-4">
+                    <div class="flex items-center space-x-2 text-cyan-400 text-xs sm:text-sm font-semibold tracking-widest uppercase">
+                        <span id="quant-beat-indicator" class="inline-block w-3 h-3 rounded-full bg-cyan-400 quant-pulse"></span>
+                        <span id="clock-mode-label">Biologischer Quanten-Takt (1 Quant = 0,864 s)</span>
+                    </div>
+
+                    <div class="orbitron text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-md">
+                        <span id="live-quant-display">088.472</span> <span class="text-lg sm:text-2xl text-cyan-400 font-normal">Quanten</span>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 pt-2">
+                        <div class="px-4 py-2 rounded-xl bg-slate-900/85 border border-slate-700/60 text-sm">
+                            <span class="text-slate-400 block text-xs">Aktuelles ART-Datum (<span id="mode-short-tag">Biologisch</span>)</span>
+                            <span id="art-date-display" class="font-bold text-cyan-300 orbitron">405.3.2 n. ART</span>
+                        </div>
+                        <div class="px-4 py-2 rounded-xl bg-slate-900/85 border border-slate-700/60 text-sm">
+                            <span class="text-slate-400 block text-xs">Aktuelle Welle</span>
+                            <span id="art-wave-display" class="font-semibold text-indigo-300">Tauon (Welle 3)</span>
+                        </div>
+                        <div class="px-4 py-2 rounded-xl bg-slate-900/85 border border-slate-700/60 text-sm">
+                            <span class="text-slate-400 block text-xs">Aktueller Spin</span>
+                            <span id="art-spin-display" class="font-semibold text-amber-300">Deuteron (Spin 2)</span>
+                        </div>
+                    </div>
+                    <p id="mode-shift-info" class="text-xs text-slate-400 pt-1">
+                        <i class="fa-solid fa-heart-pulse text-cyan-400 mr-1"></i> <strong>Biologischer Biorhythmus:</strong> 1 Spin = 100.000 Quanten = exakt 24h (86.400 s). Synchron mit dem Erdentag.
+                    </p>
+                </div>
+
+                <!-- Right: Animated SVG Progress Rings -->
+                <div class="lg:col-span-6 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/60 p-5 rounded-2xl border border-slate-800/90">
+                    <!-- Ring 1: Horizon (100 Spins) -->
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <svg class="w-20 h-20" viewBox="0 0 80 80">
+                                <circle class="text-slate-800" stroke-width="6" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                                <circle id="ring-horizon" class="text-amber-400 progress-ring__circle" stroke-width="6" stroke-dasharray="201.06" stroke-dashoffset="201.06" stroke-linecap="round" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                            </svg>
+                            <span id="pct-horizon" class="absolute orbitron text-xs font-bold text-amber-300">32%</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-300 mt-2">Horizon</span>
+                        <span class="text-[10px] text-slate-500">100 Spins</span>
+                    </div>
+
+                    <!-- Ring 2: Welle (10 Spins) -->
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <svg class="w-20 h-20" viewBox="0 0 80 80">
+                                <circle class="text-slate-800" stroke-width="6" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                                <circle id="ring-wave" class="text-indigo-400 progress-ring__circle" stroke-width="6" stroke-dasharray="201.06" stroke-dashoffset="201.06" stroke-linecap="round" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                            </svg>
+                            <span id="pct-wave" class="absolute orbitron text-xs font-bold text-indigo-300">20%</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-300 mt-2">Welle</span>
+                        <span class="text-[10px] text-slate-500">10 Spins</span>
+                    </div>
+
+                    <!-- Ring 3: Spin (100.000 Quanten) -->
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <svg class="w-20 h-20" viewBox="0 0 80 80">
+                                <circle class="text-slate-800" stroke-width="6" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                                <circle id="ring-spin" class="text-cyan-400 progress-ring__circle" stroke-width="6" stroke-dasharray="201.06" stroke-dashoffset="201.06" stroke-linecap="round" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                            </svg>
+                            <span id="pct-spin" class="absolute orbitron text-xs font-bold text-cyan-300">88%</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-300 mt-2">Spin</span>
+                        <span class="text-[10px] text-slate-500">100k Quanten</span>
+                    </div>
+
+                    <!-- Ring 4: Quanten-Takt -->
+                    <div class="flex flex-col items-center justify-center p-2">
+                        <div class="relative w-20 h-20 flex items-center justify-center">
+                            <svg class="w-20 h-20" viewBox="0 0 80 80">
+                                <circle class="text-slate-800" stroke-width="6" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                                <circle id="ring-quant" class="text-emerald-400 progress-ring__circle" stroke-width="6" stroke-dasharray="201.06" stroke-dashoffset="201.06" stroke-linecap="round" stroke="currentColor" fill="transparent" r="32" cx="40" cy="40"/>
+                            </svg>
+                            <span id="sub-quant" class="absolute orbitron text-xs font-bold text-emerald-300">.0</span>
+                        </div>
+                        <span class="text-[11px] font-semibold text-slate-300 mt-2">Quant</span>
+                        <span id="quant-unit-hint" class="text-[10px] text-slate-500">0,864 s</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Interactive Date & Time Converter Section -->
+        <section class="glass-panel rounded-3xl p-6 sm:p-8 border border-indigo-500/20 space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="orbitron text-lg sm:text-xl font-bold text-white flex items-center gap-2.5">
+                        <i class="fa-solid fa-right-left text-pink-400"></i> Relativistischer Datums- & Zeit-Konverter
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-0.5">Rechne jedes gregorianische Datum ab dem 25.11.1915 in beide ART-Systeme um und markiere es live im Kalender.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="setConverterPreset('now')" class="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-cyan-300 border border-slate-700 transition-all">
+                        <i class="fa-solid fa-clock mr-1"></i> Jetzt
+                    </button>
+                    <button onclick="setConverterPreset('2011-09-10T12:00')" class="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-amber-300 border border-slate-700 transition-all">
+                        🎂 10.09.2011
+                    </button>
+                    <button onclick="setConverterPreset('1919-05-29T14:13')" class="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-indigo-300 border border-slate-700 transition-all">
+                        🌑 29.05.1919
+                    </button>
+                    <button onclick="setConverterPreset('1969-07-20T20:17')" class="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-emerald-300 border border-slate-700 transition-all">
+                        🚀 20.07.1969
+                    </button>
+                    <button onclick="setConverterPreset('2019-04-10T15:00')" class="px-3 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-xs text-purple-300 border border-slate-700 transition-all">
+                        🕳️ 10.04.2019
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                <!-- Input Box -->
+                <div class="lg:col-span-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+                    <div class="space-y-2">
+                        <label for="conv-datetime" class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Gregorianisches Datum & Uhrzeit</label>
+                        <input type="datetime-local" id="conv-datetime" step="1" onchange="calculateConverter()" oninput="calculateConverter()" class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm font-mono focus:outline-none focus:border-cyan-400 transition-colors">
+                        <p id="conv-warning" class="text-xs text-rose-400 hidden"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Bitte ein Datum ab dem 25.11.1915 wählen.</p>
+                    </div>
+                    <button onclick="jumpToConvertedInCalendar()" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-600 text-white font-semibold text-xs sm:text-sm hover:opacity-95 transition-all shadow-lg flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-crosshairs"></i> Im Kalender anzeigen & aufblinken lassen
+                    </button>
+                </div>
+
+                <!-- Results Comparison: Bio vs Echt-SI -->
+                <div class="lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Bio Result Card -->
+                    <div id="conv-card-bio" class="bg-slate-900/80 border border-cyan-500/30 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-cyan-400"><i class="fa-solid fa-heart-pulse mr-1.5"></i>Biologisches System</span>
+                            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300">1 Quant = 0,864s</span>
+                        </div>
+                        <div class="orbitron text-2xl font-bold text-white" id="conv-bio-short">349.8.8 n. ART</div>
+                        <div class="text-xs text-slate-300 font-medium" id="conv-bio-full">Beryllium-8 in der Welle Graviton, Horizon 349</div>
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-xs">
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">Tages-Quanten</span>
+                                <span class="font-mono text-cyan-300 font-semibold" id="conv-bio-quants">050.000</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">Gesamt-Spins</span>
+                                <span class="font-mono text-slate-300" id="conv-bio-totalspins">34.988</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real SI Result Card -->
+                    <div id="conv-card-real" class="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-amber-400"><i class="fa-solid fa-clock mr-1.5"></i>Echt-SI System</span>
+                            <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/15 text-amber-300">1 Quant = 1,000s</span>
+                        </div>
+                        <div class="orbitron text-2xl font-bold text-white" id="conv-real-short">302.2.9 n. ART</div>
+                        <div class="text-xs text-slate-300 font-medium" id="conv-real-full">Beryllium-9 in der Welle Myon, Horizon 302</div>
+                        <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-xs">
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">Spin-Quanten</span>
+                                <span class="font-mono text-amber-300 font-semibold" id="conv-real-quants">063.200</span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 block text-[10px]">Gesamt-Spins</span>
+                                <span class="font-mono text-slate-300" id="conv-real-totalspins">30.229</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Horizon Matrix & Interactive Calendar Section -->
+        <section id="calendar-section" class="space-y-6 scroll-mt-24">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="orbitron text-xl sm:text-2xl font-bold text-white flex items-center gap-3">
+                        <i class="fa-solid fa-calendar-days text-cyan-400"></i> <span id="calendar-horizon-title">Horizon-Kalender (Horizon 405)</span>
+                    </h2>
+                    <p class="text-sm text-slate-400">Ein Horizon umfasst genau 100 Spins (10 Wellen à 10 Spins). Klicke auf eine Kachel für detaillierte Raumzeit-Daten.</p>
+                </div>
+
+                <!-- Horizon Navigation & Legend -->
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <div class="flex items-center bg-slate-900 border border-slate-800 rounded-xl p-1 mr-2">
+                        <button onclick="changeViewedHorizon(-1)" class="px-2.5 py-1 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Vorheriger Horizon">
+                            <i class="fa-solid fa-chevron-left"></i>
+                        </button>
+                        <button onclick="resetViewedHorizon()" class="px-3 py-1 font-semibold text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors" id="viewed-horizon-badge">
+                            Aktuell
+                        </button>
+                        <button onclick="changeViewedHorizon(1)" class="px-2.5 py-1 hover:bg-slate-800 rounded-lg text-slate-300 transition-colors" title="Nächster Horizon">
+                            <i class="fa-solid fa-chevron-right"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                        <span class="w-3 h-3 rounded-full bg-cyan-500 ring-2 ring-cyan-400/40"></span>
+                        <span class="text-slate-300">Aktueller Spin</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                        <span class="w-3 h-3 rounded-full bg-amber-500 ring-2 ring-amber-400/40"></span>
+                        <span class="text-slate-300">ART-Feiertag</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar Grid Container -->
+            <div class="glass-panel rounded-3xl p-4 sm:p-6 overflow-x-auto">
+                <div id="horizon-matrix" class="min-w-[880px] grid grid-cols-11 gap-2">
+                    <!-- Dynamic Grid will be inserted here by JavaScript -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 3D Light Distance Counter & Interactive Three.js Visualization -->
+        <section class="glass-panel rounded-3xl p-6 sm:p-8 border border-cyan-500/25 space-y-6 relative overflow-hidden">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-cyan-400 mb-1">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                        <span>Kosmischer Lichtkegel seit 25. November 1915 (00:00 UTC)</span>
+                    </div>
+                    <h2 class="orbitron text-xl sm:text-2xl font-bold text-white flex items-center gap-3">
+                        <i class="fa-solid fa-sun text-amber-400"></i> Interaktiver 3D-Lichtdistanz-Monitor
+                    </h2>
+                    <p class="text-xs sm:text-sm text-slate-400 mt-1">
+                        Visualisiert die sphärische Ausbreitung der ersten Lichtwellen seit Einsteins ART-Vortrag (<span class="font-mono text-slate-300">c = 299.792,458 km/s</span>) im interstellaren Raum.
+                    </p>
+                </div>
+
+                <!-- Camera Preset Controls + Fullscreen Button -->
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <button onclick="setCameraPreset('overview')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-cyan-300 font-medium transition-all">
+                        <i class="fa-solid fa-expand mr-1.5"></i> Gesamtansicht
+                    </button>
+                    <button onclick="setCameraPreset('front')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-pink-300 font-medium transition-all">
+                        <i class="fa-solid fa-bullseye mr-1.5"></i> Lichtfront (K2-18)
+                    </button>
+                    <button onclick="setCameraPreset('inner')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-medium transition-all">
+                        <i class="fa-solid fa-sun mr-1.5"></i> Inneres System
+                    </button>
+                    <button id="btn-autorotate" onclick="toggleAutoRotate()" class="px-3 py-2 rounded-xl bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-medium transition-all">
+                        <i class="fa-solid fa-rotate mr-1"></i> Auto-Rotation: An
+                    </button>
+                    <button id="btn-fullscreen-3d" onclick="toggle3DFullscreen()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-bold hover:opacity-95 transition-all shadow-lg glow-cyan">
+                        <i class="fa-solid fa-up-right-and-down-left-from-center mr-1.5"></i> Vollbild
+                    </button>
+                </div>
+            </div>
+
+            <!-- Live Light Distance Ticker Strip -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-950/85 border border-slate-800 rounded-2xl p-4">
+                    <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Zurückgelegte Lichtstrecke (km)</span>
+                    <div id="light-km-display" class="orbitron text-base sm:text-lg font-bold text-cyan-300 mt-1 truncate">1.049.840.000.000.000 km</div>
+                    <span class="text-[11px] text-slate-500 font-mono" id="light-au-display">≈ 7.017.745 AE</span>
+                </div>
+                <div class="bg-slate-950/85 border border-slate-800 rounded-2xl p-4">
+                    <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Aktueller Radius in Lichtjahren</span>
+                    <div id="light-ly-display" class="orbitron text-lg sm:text-xl font-bold text-indigo-300 mt-1">110,97234812 Lj</div>
+                    <span class="text-[11px] text-slate-500">1 Lj = 9,4607 × 10¹² km</span>
+                </div>
+                <div class="bg-slate-950/85 border border-slate-800 rounded-2xl p-4">
+                    <span class="text-[11px] uppercase tracking-wider text-slate-400 block">Zuletzt passiertes System</span>
+                    <div id="light-passed-star" class="text-base font-bold text-emerald-300 mt-1 flex items-center gap-2">
+                        <i class="fa-solid fa-check-circle text-xs"></i> <span>Alkaid (103,90 Lj)</span>
+                    </div>
+                    <span id="light-passed-diff" class="text-[11px] text-slate-400">Vor +7,07 Lj passiert</span>
+                </div>
+                <div class="bg-slate-950/85 border border-amber-500/30 rounded-2xl p-4">
+                    <span class="text-[11px] uppercase tracking-wider text-amber-400 block">Aktuelles Ziel / Lichtfront</span>
+                    <div id="light-next-star" class="text-base font-bold text-amber-300 mt-1 flex items-center gap-2">
+                        <i class="fa-solid fa-star text-xs animate-pulse"></i> <span>K2-18 (111,00 Lj)</span>
+                    </div>
+                    <span id="light-next-diff" class="text-[11px] text-slate-300">Noch 0,0276 Lj bis zur Ankunft</span>
+                </div>
+            </div>
+
+            <!-- 3D Viewport Container (with Fullscreen API & CSS Fallback support) -->
+            <div id="threejs-wrapper" class="relative w-full h-[460px] sm:h-[540px] rounded-2xl overflow-hidden border border-slate-800 bg-[#02040a] shadow-inner">
+                <div id="threejs-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+                <!-- Projected 2D Star Labels Overlay -->
+                <div id="star-labels-overlay" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+                <!-- Floating Fullscreen Overlay (visible only in Fullscreen mode) -->
+                <div id="fullscreen-hud" class="hidden absolute inset-x-4 top-4 z-30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pointer-events-none">
+                    <div class="glass-panel rounded-2xl px-4 py-3 border border-cyan-500/30 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 pointer-events-auto flex-1 max-w-3xl">
+                        <div class="flex items-center gap-4 shrink-0">
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Datum</span>
+                                <span id="fs-hud-date" class="font-mono text-xs sm:text-sm font-bold text-white">Live (Heute)</span>
+                            </div>
+                            <div class="h-6 w-px bg-slate-700"></div>
+                            <div>
+                                <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Lichtdistanz</span>
+                                <span id="fs-hud-ly" class="orbitron text-xs sm:text-sm font-bold text-cyan-300">110,97 Lj</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2.5 flex-1">
+                            <span class="text-[10px] font-mono text-slate-400 shrink-0">1915</span>
+                            <input type="range" id="fs-time-slider" min="0" max="1000" value="1000" oninput="onTimeSliderInput(this.value)" class="art-slider w-full">
+                            <button onclick="resetTimeTravelToLive()" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/50 text-cyan-300 text-[11px] font-semibold shrink-0 transition-all">
+                                Live
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="exit3DFullscreen()" class="glass-panel self-end sm:self-auto px-4 py-2.5 rounded-2xl border border-rose-500/40 text-rose-300 hover:bg-rose-500/20 text-xs font-bold transition-all pointer-events-auto shadow-lg shrink-0">
+                        <i class="fa-solid fa-compress mr-1.5"></i> Vollbild beenden
+                    </button>
+                </div>
+
+                <!-- Overlay Controls Hint -->
+                <div class="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+                    <div class="px-3 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[11px] text-slate-300">
+                        <i class="fa-solid fa-computer-mouse text-cyan-400 mr-1.5"></i> Ziehen: Drehen &bull; Mausrad: Zoom &bull; Rechtsklick: Verschieben
+                    </div>
+                    <div class="px-3 py-1.5 rounded-xl bg-slate-950/80 backdrop-blur-md border border-slate-800 text-[11px] text-cyan-300 font-mono">
+                        Maßstab: 1 Einheit = 1 Lichtjahr (Ringe alle 20 Lj)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Interactive Time-Travel Slider Bar (under 3D viewport) -->
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                            <i class="fa-solid fa-timeline"></i>
+                        </span>
+                        <div>
+                            <h3 class="text-xs sm:text-sm font-bold text-white">Zeitreise-Slider (Ausbreitung der Lichtkugel)</h3>
+                            <p id="timetravel-status-text" class="text-xs text-cyan-300 font-mono">Modus: Live (Echtzeit)</p>
+                        </div>
+                    </div>
+                    <button onclick="resetTimeTravelToLive()" class="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-cyan-500/40 text-cyan-300 font-semibold text-xs transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-satellite-dish"></i> Live
+                    </button>
+                </div>
+                <div class="flex items-center gap-3 pt-1">
+                    <span class="text-xs font-mono text-slate-400 shrink-0">25.11.1915 (0 %)</span>
+                    <input type="range" id="time-travel-slider" min="0" max="1000" value="1000" oninput="onTimeSliderInput(this.value)" class="art-slider w-full">
+                    <span class="text-xs font-mono text-cyan-300 shrink-0">Heute (100 %)</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Waves & Holidays Info Cards -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Waves Overview -->
+            <div class="glass-panel rounded-3xl p-6 sm:p-8 space-y-6">
+                <h3 class="orbitron text-lg font-bold text-white flex items-center gap-3">
+                    <i class="fa-solid fa-wave-square text-indigo-400"></i> Die 10 Wellen (Elementarteilchen)
+                </h3>
+                <div class="space-y-3 max-h-[380px] overflow-y-auto pr-2" id="waves-list">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <!-- Holidays Overview -->
+            <div class="glass-panel rounded-3xl p-6 sm:p-8 space-y-6">
+                <h3 class="orbitron text-lg font-bold text-white flex items-center gap-3">
+                    <i class="fa-solid fa-star text-amber-400"></i> Offizielle ART-Feiertage
+                </h3>
+                <div class="space-y-3 max-h-[380px] overflow-y-auto pr-2" id="holidays-list">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center text-xs text-slate-500 border-t border-slate-800/80 mt-12">
+        <p>ART-Kalendersystem &bull; Basierend auf Einsteins Allgemeiner Relativitätstheorie (25. November 1915)</p>
+        <p class="mt-1">1 Horizon = 10 Wellen = 100 Spins = 10.000.000 Quanten.</p>
+    </footer>
+
+    <!-- Custom Modal: Info ("i") -->
+    <div id="info-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel rounded-3xl max-w-3xl w-full p-6 sm:p-8 relative border border-cyan-500/30 shadow-2xl glow-cyan transform scale-95 transition-transform duration-300 max-h-[90vh] overflow-y-auto">
+            <button onclick="closeModal('info-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white w-9 h-9 rounded-full bg-slate-900/80 flex items-center justify-center border border-slate-700 transition-all">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="space-y-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 text-2xl">
+                        <i class="fa-solid fa-atom"></i>
+                    </div>
+                    <div>
+                        <h2 class="orbitron text-xl font-bold text-white">Das ART-Kalendersystem</h2>
+                        <p class="text-xs text-cyan-400">Vollständige Dokumentation der relativistischen Zeitrechnung</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4 text-sm text-slate-300 leading-relaxed">
+                    <p>
+                        Das ART-Kalendersystem ersetzt den gregorianischen Kalender durch ein streng dezimales 10er-System, das am <strong class="text-white">25. November 1915 (00:00:00)</strong> – dem Tag der Vorstellung von Albert Einsteins Allgemeiner Relativitätstheorie – bei Null beginnt.
+                    </p>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                            <h4 class="font-bold text-cyan-300 mb-1"><i class="fa-solid fa-bolt mr-2"></i>1 Quant (Zeiteinheit)</h4>
+                            <p class="text-xs text-slate-400"><strong>Biologisch:</strong> Exakt 0,864 s (ein ruhiger Herzschlag mit ~69 bpm, 100.000× pro 24h-Erdtag).<br><strong>Echt-SI:</strong> Exakt 1 SI-Sekunde (ca. 299.792 km Lichtweg).</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                            <h4 class="font-bold text-amber-300 mb-1"><i class="fa-solid fa-sun mr-2"></i>1 Spin (Tageseinheit)</h4>
+                            <p class="text-xs text-slate-400">Besteht aus exakt <strong>100.000 Quanten</strong> und ist nach Atomkernen (0–9 Kernbausteine: Photon bis Beryllium-9) benannt. Im Biologischen Modus entspricht 1 Spin genau <strong>24h</strong>, im Echt-SI Modus <strong>100 ks (27h 46m 40s)</strong>, wodurch sich das Datum gegenüber dem Erdkalender verschiebt.</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                            <h4 class="font-bold text-indigo-300 mb-1"><i class="fa-solid fa-wave-square mr-2"></i>1 Welle (Woche / Monat)</h4>
+                            <p class="text-xs text-slate-400">Fasst genau <strong>10 Spins</strong> zusammen. Benannt nach den 10 Elementarteilchen des Standardmodells (Neutrino bis Tachyon).</p>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                            <h4 class="font-bold text-purple-300 mb-1"><i class="fa-solid fa-globe mr-2"></i>1 Horizon (Jahr)</h4>
+                            <p class="text-xs text-slate-400">Besteht aus <strong>10 Wellen = 100 Spins</strong> (10.000.000 Quanten). Nie wieder Schaltjahre oder unregelmäßige Monatslängen!</p>
+                        </div>
+                    </div>
+
+                    <!-- Summary of Waves & Spins -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+                            <h5 class="text-xs font-bold uppercase tracking-wider text-indigo-400 mb-2">Die 10 Wellen (0–9)</h5>
+                            <ul class="text-xs text-slate-400 space-y-1">
+                                <li><strong class="text-slate-200">0 Neutrino</strong> &bull; <strong class="text-slate-200">1 Elektron</strong> &bull; <strong class="text-slate-200">2 Myon</strong></li>
+                                <li><strong class="text-slate-200">3 Tauon</strong> &bull; <strong class="text-slate-200">4 Quark</strong> &bull; <strong class="text-slate-200">5 Gluon</strong></li>
+                                <li><strong class="text-slate-200">6 Boson</strong> &bull; <strong class="text-slate-200">7 Higgs</strong> &bull; <strong class="text-slate-200">8 Graviton</strong> &bull; <strong class="text-slate-200">9 Tachyon</strong></li>
+                            </ul>
+                        </div>
+                        <div class="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
+                            <h5 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-2">Die 10 Spins (0–9)</h5>
+                            <ul class="text-xs text-slate-400 space-y-1">
+                                <li><strong class="text-slate-200">0 Photon</strong> &bull; <strong class="text-slate-200">1 Proton</strong> &bull; <strong class="text-slate-200">2 Deuteron</strong></li>
+                                <li><strong class="text-slate-200">3 Triton</strong> &bull; <strong class="text-slate-200">4 Alpha</strong> &bull; <strong class="text-slate-200">5 Helium-5</strong></li>
+                                <li><strong class="text-slate-200">6 Lithium-6</strong> &bull; <strong class="text-slate-200">7 Lithium-7</strong> &bull; <strong class="text-slate-200">8 Beryllium-8</strong> &bull; <strong class="text-slate-200">9 Beryllium-9</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end">
+                    <button onclick="closeModal('info-modal')" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-slate-950 font-semibold hover:opacity-90 transition-all shadow-lg glow-cyan">
+                        Verstanden
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Modal: Spin Details -->
+    <div id="spin-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+        <div class="glass-panel rounded-3xl max-w-lg w-full p-6 sm:p-8 relative border border-indigo-500/30 shadow-2xl transform scale-95 transition-transform duration-300">
+            <button onclick="closeModal('spin-modal')" class="absolute top-6 right-6 text-slate-400 hover:text-white w-9 h-9 rounded-full bg-slate-900/80 flex items-center justify-center border border-slate-700 transition-all">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="space-y-6" id="spin-modal-content">
+                <!-- Dynamic Content injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Data Definitions: 10 Wellen (Elementarteilchen)
+        const waves = [
+            { id: 0, name: "Neutrino", desc: "Fast masseloses Geisterteilchen" },
+            { id: 1, name: "Elektron", desc: "Bekanntestes Elementarteilchen (1. Generation)" },
+            { id: 2, name: "Myon", desc: "Schwerer Bruder des Elektrons (2. Generation)" },
+            { id: 3, name: "Tauon", desc: "Schwerstes Lepton (3. Generation)" },
+            { id: 4, name: "Quark", desc: "Grundbaustein von Protonen und Neutronen" },
+            { id: 5, name: "Gluon", desc: "Klebstoff der starken Kernkraft" },
+            { id: 6, name: "Boson", desc: "Überträger der schwachen Kernkraft (W/Z)" },
+            { id: 7, name: "Higgs", desc: "Verleiht anderen Teilchen ihre Masse" },
+            { id: 8, name: "Graviton", desc: "Hypothetisches Teilchen der Schwerkraft" },
+            { id: 9, name: "Tachyon", desc: "Hypothetisches Teilchen schneller als das Licht" }
+        ];
+
+        // Data Definitions: 10 Spins (Atomkerne & Massenzahl)
+        const spins = [
+            { id: 0, name: "Photon", mass: "0 Ruhemasse", desc: "Start der Welle – reines Quantenlicht ohne Ruhemasse." },
+            { id: 1, name: "Proton", mass: "1 Kernbaustein", desc: "Stabiler Baryon-Kern, Fundament der sichtbaren Materie." },
+            { id: 2, name: "Deuteron", mass: "2 Kernbausteine", desc: "Schwerer Wasserstoffkern (1 Proton + 1 Neutron)." },
+            { id: 3, name: "Triton", mass: "3 Kernbausteine", desc: "Überschwerer Wasserstoff-3 Kern (1 Proton + 2 Neutronen)." },
+            { id: 4, name: "Alpha", mass: "4 Kernbausteine", desc: "Helium-4 Kern, extrem stabiler magischer Atomkern." },
+            { id: 5, name: "Helium-5", mass: "5 Kernbausteine", desc: "Kurzlebiges Isotop mit Neutronen-Halo." },
+            { id: 6, name: "Lithium-6", mass: "6 Kernbausteine", desc: "Stabiles Alkalimetall-Isotop." },
+            { id: 7, name: "Lithium-7", mass: "7 Kernbausteine", desc: "Häufigstes natürliches Lithium-Isotop." },
+            { id: 8, name: "Beryllium-8", mass: "8 Kernbausteine", desc: "Resonanzkern, entscheidend für die Sternfusion (Drei-Alpha-Prozess)." },
+            { id: 9, name: "Beryllium-9", mass: "9 Kernbausteine", desc: "Abschluss der Welle, stabiles Beryllium-Isotop." }
+        ];
+
+        // Data Definitions: 5 Offizielle Feiertage mit Emoji-Symbol und kurzem Kachel-Titel
+        const holidays = [
+            {
+                wave: 0,
+                spin: 0,
+                code: "X.0.0",
+                shortLabel: "Neujahr",
+                name: "Horizon-Neujahr",
+                emoji: "✨",
+                desc: "Alle 100 Spins startet ein neuer Horizon mit Photon in der Welle Neutrino."
+            },
+            {
+                wave: 8,
+                spin: 1,
+                code: "X.8.1",
+                shortLabel: "Sonnenfinsternis",
+                name: "Relativitäts-Sonnenfinsternis",
+                emoji: "🌑",
+                desc: "Tag des gekrümmten Lichts – Gedenken an Arthur Eddingtons Beweis der Lichtablenkung am 29. Mai 1919 (Spin 12.8.1)."
+            },
+            {
+                wave: 6,
+                spin: 9,
+                code: "X.6.9",
+                shortLabel: "Urknall-Echo",
+                name: "Das Urknall-Echo",
+                emoji: "📡",
+                desc: "Tag des kosmischen Echos – Entdeckung der kosmischen Hintergrundstrahlung durch Penzias & Wilson am 20. Mai 1964 (Spin 180.6.9)."
+            },
+            {
+                wave: 5,
+                spin: 6,
+                code: "X.5.6",
+                shortLabel: "Schwarzes Loch",
+                name: "Erstes Schwarzes-Loch-Bild",
+                emoji: "🕳️",
+                desc: "Horizont-Feiertag – Veröffentlichung des allerersten Fotos eines Schwarzen Lochs (M87*) am 10. April 2019 (Spin 377.5.6)."
+            },
+            {
+                wave: 8,
+                spin: 8,
+                code: "X.8.8",
+                shortLabel: "Resonanz-Tag",
+                name: "Persönlicher Resonanz-Tag",
+                emoji: "🎂",
+                desc: "Beryllium-8 in der Welle Graviton – Dein persönlicher Horizon-Geburtstag (Ursprung: Spin 349.8.8 / 10.09.2011)."
+            }
+        ];
+
+        // Epoch: 25. November 1915, 00:00:00 UTC
+        const epochDate = new Date(Date.UTC(1915, 10, 25, 0, 0, 0));
+        const epochMs = epochDate.getTime();
+
+        // Physical Constants for Light Distance Counter
+        const C_KM_PER_SEC = 299792.458;
+        const JULIAN_YEAR_SEC = 365.25 * 86400; // 31.557.600 s
+        const KM_PER_LIGHTYEAR = C_KM_PER_SEC * JULIAN_YEAR_SEC; // ~9.46073047e12 km
+        const KM_PER_AU = 149597870.7;
+
+        // Real 3D Milestone Stars (Distance in Light-Years)
+        const milestoneStars = [
+            { name: "Proxima Centauri", distLy: 4.24, angle: 0.4, elev: 0.15, color: 0xf87171, hex: "#f87171", note: "Nächster Nachbarstern" },
+            { name: "Sirius", distLy: 8.60, angle: 2.1, elev: -0.18, color: 0x38bdf8, hex: "#38bdf8", note: "Hellster Stern am Nachthimmel" },
+            { name: "Wega", distLy: 25.30, angle: 3.7, elev: 0.25, color: 0xa5f3fc, hex: "#a5f3fc", note: "Hauptstern der Leier" },
+            { name: "TRAPPIST-1", distLy: 40.70, angle: 5.0, elev: -0.22, color: 0xfb923c, hex: "#fb923c", note: "7 erdgroße Exoplaneten" },
+            { name: "Alkaid", distLy: 103.90, angle: 1.35, elev: 0.28, color: 0xc084fc, hex: "#c084fc", note: "Deichselstern im Großen Wagen" },
+            { name: "K2-18", distLy: 111.00, angle: 2.85, elev: 0.12, color: 0xfbbf24, hex: "#fbbf24", note: "Aktuelle Lichtfront (~111 Lj)", isTarget: true }
+        ];
+
+        // Global State
+        let clockMode = 'bio'; // 'bio' (0.864s per Quant) or 'real' (1.0s per Quant)
+        let currentHorizon = 405;
+        let viewedHorizon = null;
+        let lastConvertedResult = null;
+        let isTimeTravelManual = false;
+        let is3DFullscreenFallback = false;
+
+        // Initialize UI on window load
+        window.onload = function() {
+            initSpacetimeCanvas();
+            renderWavesList();
+            renderHolidaysList();
+            updateClock();
+            renderHorizonMatrix();
+            initConverter();
+            initThreeJS();
+            setInterval(updateClock, 80);
+        };
+
+        // Core ART Calculation Helper for any timestamp in ms
+        function computeArtMetrics(targetMs, mode) {
+            const diffSec = Math.max(0, (targetMs - epochMs) / 1000);
+            const quantDurationSec = mode === 'bio' ? 0.864 : 1.0;
+
+            const totalQuants = diffSec / quantDurationSec;
+            const totalSpins = Math.floor(totalQuants / 100000);
+            const quantsInSpin = totalQuants % 100000;
+            const spinProgressPct = (quantsInSpin / 100000) * 100;
+
+            const horizon = Math.floor(totalSpins / 100);
+            const spinInHorizon = totalSpins % 100;
+            const waveIdx = Math.floor(spinInHorizon / 10);
+            const spinIdx = spinInHorizon % 10;
+
+            return {
+                totalQuants,
+                totalSpins,
+                quantsInSpin,
+                spinProgressPct,
+                horizon,
+                spinInHorizon,
+                waveIdx,
+                spinIdx,
+                shortCode: `${horizon}.${waveIdx}.${spinIdx} n. ART`,
+                fullName: `${spins[spinIdx].name} in der Welle ${waves[waveIdx].name}, Horizon ${horizon}`
+            };
+        }
+
+        // Get holiday object for a specific wave & spin, or null
+        function getHolidayForCell(waveIdx, spinIdx) {
+            return holidays.find(h => h.wave === waveIdx && h.spin === spinIdx) || null;
+        }
+
+        // Horizon Navigation
+        function changeViewedHorizon(delta) {
+            if (viewedHorizon === null) viewedHorizon = currentHorizon;
+            viewedHorizon = Math.max(0, viewedHorizon + delta);
+            renderHorizonMatrix();
+        }
+
+        function resetViewedHorizon() {
+            viewedHorizon = currentHorizon;
+            renderHorizonMatrix();
+        }
+
+        // Clock Mode Switcher
+        function setClockMode(mode) {
+            clockMode = mode;
+            const btnBio = document.getElementById('btn-bio');
+            const btnReal = document.getElementById('btn-real');
+            const btnBioM = document.getElementById('btn-bio-m');
+            const btnRealM = document.getElementById('btn-real-m');
+            const label = document.getElementById('clock-mode-label');
+            const quantHint = document.getElementById('quant-unit-hint');
+            const beatIndicator = document.getElementById('quant-beat-indicator');
+            const modeShortTag = document.getElementById('mode-short-tag');
+            const modeShiftInfo = document.getElementById('mode-shift-info');
+
+            if (mode === 'bio') {
+                btnBio.className = "px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-cyan-500 text-slate-950 shadow-md";
+                btnReal.className = "px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 hover:text-white";
+                btnBioM.className = "flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-cyan-500 text-slate-950 text-center";
+                btnRealM.className = "flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 text-center";
+                label.innerText = "Biologischer Quanten-Takt (1 Quant = 0,864 s)";
+                quantHint.innerText = "0,864 s";
+                modeShortTag.innerText = "Biologisch";
+                modeShiftInfo.innerHTML = `<i class="fa-solid fa-heart-pulse text-cyan-400 mr-1"></i> <strong>Biologischer Biorhythmus:</strong> 1 Spin = 100.000 Quanten = exakt 24h (86.400 s). Synchron mit dem Erdentag.`;
+                beatIndicator.style.animationDuration = "0.864s";
+            } else {
+                btnReal.className = "px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-amber-400 text-slate-950 shadow-md";
+                btnBio.className = "px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 hover:text-white";
+                btnRealM.className = "flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 bg-amber-400 text-slate-950 text-center";
+                btnBioM.className = "flex-1 py-1.5 rounded-full text-xs font-medium transition-all duration-300 text-slate-400 text-center";
+                label.innerText = "Echt-SI Zeit-Takt (1 Quant = 1,000 SI-Sekunde)";
+                quantHint.innerText = "1,000 s";
+                modeShortTag.innerText = "Echt-SI";
+                modeShiftInfo.innerHTML = `<i class="fa-solid fa-clock text-amber-400 mr-1"></i> <strong>Echt-SI Verschiebung aktiv:</strong> 1 Spin = 100.000 SI-Sekunden (27h 46m 40s). Seit 1915 sind daher weniger Spins vergangen als im 24h-System!`;
+                beatIndicator.style.animationDuration = "1.0s";
+            }
+            const metrics = computeArtMetrics(Date.now(), clockMode);
+            currentHorizon = metrics.horizon;
+            viewedHorizon = metrics.horizon;
+            updateClock();
+            renderHorizonMatrix();
+            renderHolidaysList();
+        }
+
+        // Helper to update circular SVG rings
+        function setRingProgress(elementId, percent) {
+            const circle = document.getElementById(elementId);
+            if (!circle) return;
+            const radius = circle.r.baseVal.value;
+            const circumference = radius * 2 * Math.PI;
+            const offset = circumference - (Math.min(100, Math.max(0, percent)) / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+
+        // Clock calculation engine
+        function updateClock() {
+            const now = Date.now();
+            const metrics = computeArtMetrics(now, clockMode);
+            const { quantsInSpin, spinProgressPct, horizon, spinInHorizon, waveIdx, spinIdx } = metrics;
+
+            if (currentHorizon !== horizon) {
+                currentHorizon = horizon;
+                if (viewedHorizon === null) renderHorizonMatrix();
+            }
+            if (viewedHorizon === null) {
+                viewedHorizon = horizon;
+            }
+
+            // Format Quant display (6 digits: 000.000)
+            const wholeQuanten = Math.floor(quantsInSpin);
+            const subQuant = Math.floor((quantsInSpin - wholeQuanten) * 10);
+            const formattedQuanten = String(wholeQuanten).padStart(6, '0').replace(/(\d{3})(\d{3})/, '$1.$2');
+            document.getElementById('live-quant-display').innerText = formattedQuanten;
+
+            // Update badges
+            document.getElementById('art-date-display').innerText = metrics.shortCode;
+            document.getElementById('art-wave-display').innerText = `${waves[waveIdx].name} (Welle ${waveIdx})`;
+            document.getElementById('art-spin-display').innerText = `${spins[spinIdx].name} (Spin ${spinIdx})`;
+
+            // Update 4 SVG Progress Rings
+            const horizonProgressPct = ((spinInHorizon + spinProgressPct / 100) / 100) * 100;
+            const waveProgressPct = ((spinIdx + spinProgressPct / 100) / 10) * 100;
+            const quantSubPct = (quantsInSpin - wholeQuanten) * 100;
+
+            setRingProgress('ring-horizon', horizonProgressPct);
+            document.getElementById('pct-horizon').innerText = `${Math.floor(horizonProgressPct)}%`;
+
+            setRingProgress('ring-wave', waveProgressPct);
+            document.getElementById('pct-wave').innerText = `${Math.floor(waveProgressPct)}%`;
+
+            setRingProgress('ring-spin', spinProgressPct);
+            document.getElementById('pct-spin').innerText = `${Math.floor(spinProgressPct)}%`;
+
+            setRingProgress('ring-quant', quantSubPct);
+            document.getElementById('sub-quant').innerText = `.${subQuant}`;
+
+            // Highlight current cell in grid if viewing current horizon
+            highlightCurrentGridCell(viewedHorizon === currentHorizon ? spinInHorizon : -1);
+
+            // Update Light Distance Ticker & 3D Light Sphere Radius (only when in Live mode)
+            if (!isTimeTravelManual) {
+                updateLightDistance(now);
+            }
+        }
+
+        // Interactive Date & Time Converter Logic
+        function initConverter() {
+            setConverterPreset('now');
+        }
+
+        function setConverterPreset(preset) {
+            const input = document.getElementById('conv-datetime');
+            if (!input) return;
+            if (preset === 'now') {
+                const now = new Date();
+                const offsetMs = now.getTimezoneOffset() * 60000;
+                const localISOTime = new Date(now.getTime() - offsetMs).toISOString().slice(0, 19);
+                input.value = localISOTime;
+            } else {
+                input.value = preset;
+            }
+            calculateConverter();
+        }
+
+        function calculateConverter() {
+            const input = document.getElementById('conv-datetime');
+            const warning = document.getElementById('conv-warning');
+            if (!input || !input.value) return;
+
+            const parsedDate = new Date(input.value);
+            if (isNaN(parsedDate.getTime())) return;
+
+            const targetMs = parsedDate.getTime();
+            if (targetMs < epochMs) {
+                warning.classList.remove('hidden');
+            } else {
+                warning.classList.add('hidden');
+            }
+
+            const bio = computeArtMetrics(targetMs, 'bio');
+            const real = computeArtMetrics(targetMs, 'real');
+
+            document.getElementById('conv-bio-short').innerText = bio.shortCode;
+            document.getElementById('conv-bio-full').innerText = bio.fullName;
+            document.getElementById('conv-bio-quants').innerText = String(Math.floor(bio.quantsInSpin)).padStart(6, '0').replace(/(\d{3})(\d{3})/, '$1.$2');
+            document.getElementById('conv-bio-totalspins').innerText = bio.totalSpins.toLocaleString('de-DE');
+
+            document.getElementById('conv-real-short').innerText = real.shortCode;
+            document.getElementById('conv-real-full').innerText = real.fullName;
+            document.getElementById('conv-real-quants').innerText = String(Math.floor(real.quantsInSpin)).padStart(6, '0').replace(/(\d{3})(\d{3})/, '$1.$2');
+            document.getElementById('conv-real-totalspins').innerText = real.totalSpins.toLocaleString('de-DE');
+
+            lastConvertedResult = { bio, real };
+        }
+
+        function jumpToConvertedInCalendar() {
+            if (!lastConvertedResult) calculateConverter();
+            if (!lastConvertedResult) return;
+
+            const activeMetrics = clockMode === 'bio' ? lastConvertedResult.bio : lastConvertedResult.real;
+            viewedHorizon = activeMetrics.horizon;
+            renderHorizonMatrix();
+
+            const calSection = document.getElementById('calendar-section');
+            if (calSection) {
+                calSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            setTimeout(() => {
+                const cell = document.getElementById(`grid-cell-${activeMetrics.spinInHorizon}`);
+                if (cell) {
+                    cell.classList.remove('cell-flash-highlight');
+                    void cell.offsetWidth;
+                    cell.classList.add('cell-flash-highlight');
+                }
+            }, 350);
+        }
+
+        // Light Distance & Three.js 3D Scene Variables
+        let threeScene, threeCamera, threeRenderer, threeControls;
+        let lightSphereMesh, lightWireMesh, coreSunMesh;
+        let starNodes3D = [];
+        let currentLightRadiusLy = 110.97;
+
+        function updateLightDistance(targetMs) {
+            const elapsedSec = Math.max(0, (targetMs - epochMs) / 1000);
+            const distKm = elapsedSec * C_KM_PER_SEC;
+            const distLy = distKm / KM_PER_LIGHTYEAR;
+            const distAu = distKm / KM_PER_AU;
+            currentLightRadiusLy = distLy;
+
+            const kmEl = document.getElementById('light-km-display');
+            const auEl = document.getElementById('light-au-display');
+            const lyEl = document.getElementById('light-ly-display');
+            if (kmEl) {
+                kmEl.innerText = Math.floor(distKm).toLocaleString('de-DE') + ' km';
+                auEl.innerText = '≈ ' + Math.floor(distAu).toLocaleString('de-DE') + ' AE';
+                lyEl.innerText = distLy.toFixed(8).replace('.', ',') + ' Lj';
+            }
+
+            // Update Fullscreen HUD values
+            const fsHudDate = document.getElementById('fs-hud-date');
+            const fsHudLy = document.getElementById('fs-hud-ly');
+            if (fsHudDate && fsHudLy) {
+                const dateStr = new Date(targetMs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                fsHudDate.innerText = !isTimeTravelManual ? `Live (${dateStr})` : dateStr;
+                fsHudLy.innerText = distLy.toFixed(4).replace('.', ',') + ' Lj';
+            }
+
+            // Determine last passed & next target star
+            let passed = null;
+            let next = null;
+            for (let i = 0; i < milestoneStars.length; i++) {
+                if (distLy >= milestoneStars[i].distLy) {
+                    passed = milestoneStars[i];
+                } else if (!next) {
+                    next = milestoneStars[i];
+                }
+            }
+
+            const passedEl = document.getElementById('light-passed-star');
+            const passedDiffEl = document.getElementById('light-passed-diff');
+            const nextEl = document.getElementById('light-next-star');
+            const nextDiffEl = document.getElementById('light-next-diff');
+
+            if (passedEl) {
+                if (passed) {
+                    passedEl.innerHTML = `<i class="fa-solid fa-check-circle text-xs"></i> <span>${passed.name} (${passed.distLy.toFixed(2).replace('.', ',')} Lj)</span>`;
+                    passedDiffEl.innerText = `Vor +${(distLy - passed.distLy).toFixed(2).replace('.', ',')} Lj passiert`;
+                } else {
+                    passedEl.innerHTML = `<i class="fa-solid fa-rocket text-xs"></i> <span>Sonnensystem (Start)</span>`;
+                    passedDiffEl.innerText = `Unterwegs zu Proxima Centauri`;
+                }
+            }
+            if (nextEl) {
+                if (next) {
+                    const remLy = next.distLy - distLy;
+                    nextEl.innerHTML = `<i class="fa-solid fa-star text-xs animate-pulse"></i> <span>${next.name} (${next.distLy.toFixed(2).replace('.', ',')} Lj)</span>`;
+                    nextDiffEl.innerText = remLy < 0.05
+                        ? `Lichtfront erreicht System JETZT! (${remLy.toFixed(4).replace('.', ',')} Lj)`
+                        : `Noch ${remLy.toFixed(4).replace('.', ',')} Lj bis zur Ankunft`;
+                } else {
+                    nextEl.innerHTML = `<i class="fa-solid fa-star text-xs"></i> <span>K2-18 (111,00 Lj) passiert!</span>`;
+                    nextDiffEl.innerText = `Lichtkugel expandiert weiter in den Kosmos`;
+                }
+            }
+
+            // Update 3D Light Sphere Scale (safe minimum > 0)
+            const safeScale = Math.max(0.05, distLy);
+            if (lightSphereMesh && lightWireMesh) {
+                lightSphereMesh.scale.set(safeScale, safeScale, safeScale);
+                lightWireMesh.scale.set(safeScale, safeScale, safeScale);
+            }
+        }
+
+        // Time-Travel Slider Handlers (synchronized between inline & fullscreen)
+        function onTimeSliderInput(val) {
+            const numVal = Number(val);
+            const s1 = document.getElementById('time-travel-slider');
+            const s2 = document.getElementById('fs-time-slider');
+            if (s1 && s1.value !== String(numVal)) s1.value = numVal;
+            if (s2 && s2.value !== String(numVal)) s2.value = numVal;
+
+            if (numVal >= 1000) {
+                resetTimeTravelToLive();
+                return;
+            }
+
+            isTimeTravelManual = true;
+            const fraction = numVal / 1000;
+            const nowMs = Date.now();
+            const targetMs = epochMs + fraction * (nowMs - epochMs);
+
+            const dateStr = new Date(targetMs).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const artM = computeArtMetrics(targetMs, clockMode);
+            const statusEl = document.getElementById('timetravel-status-text');
+            if (statusEl) {
+                statusEl.innerText = `Zeitreise (${Math.round(fraction * 100)} %): ${dateStr} (${artM.shortCode})`;
+            }
+
+            updateLightDistance(targetMs);
+        }
+
+        function resetTimeTravelToLive() {
+            isTimeTravelManual = false;
+            const s1 = document.getElementById('time-travel-slider');
+            const s2 = document.getElementById('fs-time-slider');
+            if (s1) s1.value = 1000;
+            if (s2) s2.value = 1000;
+
+            const statusEl = document.getElementById('timetravel-status-text');
+            if (statusEl) {
+                statusEl.innerText = `Modus: Live (Echtzeit)`;
+            }
+
+            updateLightDistance(Date.now());
+        }
+
+        // Fullscreen API + CSS Fallback for 3D Container
+        function toggle3DFullscreen() {
+            const wrapper = document.getElementById('threejs-wrapper');
+            if (!wrapper) return;
+
+            const isNativeFs = document.fullscreenElement || document.webkitFullscreenElement;
+            if (isNativeFs || is3DFullscreenFallback) {
+                exit3DFullscreen();
+                return;
+            }
+
+            if (wrapper.requestFullscreen) {
+                wrapper.requestFullscreen().catch(() => enableFallbackFullscreen(wrapper));
+            } else if (wrapper.webkitRequestFullscreen) {
+                wrapper.webkitRequestFullscreen();
+            } else {
+                enableFallbackFullscreen(wrapper);
+            }
+        }
+
+        function enableFallbackFullscreen(wrapper) {
+            is3DFullscreenFallback = true;
+            wrapper.classList.add('fullscreen-fallback');
+            updateFullscreenHUD(true);
+            resizeThreeRenderer();
+        }
+
+        function exit3DFullscreen() {
+            const wrapper = document.getElementById('threejs-wrapper');
+            if (document.fullscreenElement && document.exitFullscreen) {
+                document.exitFullscreen().catch(() => {});
+            } else if (document.webkitFullscreenElement && document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            }
+            if (is3DFullscreenFallback && wrapper) {
+                is3DFullscreenFallback = false;
+                wrapper.classList.remove('fullscreen-fallback');
+            }
+            updateFullscreenHUD(false);
+            resizeThreeRenderer();
+        }
+
+        function updateFullscreenHUD(isFs) {
+            const hud = document.getElementById('fullscreen-hud');
+            if (hud) {
+                hud.classList.toggle('hidden', !isFs);
+            }
+        }
+
+        document.addEventListener('fullscreenchange', () => {
+            const isFs = Boolean(document.fullscreenElement);
+            updateFullscreenHUD(isFs);
+            resizeThreeRenderer();
+        });
+        document.addEventListener('webkitfullscreenchange', () => {
+            const isFs = Boolean(document.webkitFullscreenElement);
+            updateFullscreenHUD(isFs);
+            resizeThreeRenderer();
+        });
+
+        function resizeThreeRenderer() {
+            const container = document.getElementById('threejs-container');
+            if (!container || !threeRenderer || !threeCamera) return;
+            setTimeout(() => {
+                const w = container.clientWidth || window.innerWidth;
+                const h = container.clientHeight || window.innerHeight;
+                threeCamera.aspect = w / h;
+                threeCamera.updateProjectionMatrix();
+                threeRenderer.setSize(w, h);
+            }, 60);
+        }
+
+        function initThreeJS() {
+            const container = document.getElementById('threejs-container');
+            if (!container || typeof THREE === 'undefined') return;
+
+            const width = container.clientWidth || 800;
+            const height = container.clientHeight || 480;
+
+            threeScene = new THREE.Scene();
+            threeScene.fog = new THREE.FogExp2(0x02040a, 0.0022);
+
+            threeCamera = new THREE.PerspectiveCamera(48, width / height, 0.1, 2000);
+            threeCamera.position.set(0, 115, 195);
+
+            threeRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            threeRenderer.setSize(width, height);
+            threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(threeRenderer.domElement);
+
+            // OrbitControls
+            if (typeof THREE.OrbitControls !== 'undefined') {
+                threeControls = new THREE.OrbitControls(threeCamera, threeRenderer.domElement);
+                threeControls.enableDamping = true;
+                threeControls.dampingFactor = 0.06;
+                threeControls.autoRotate = true;
+                threeControls.autoRotateSpeed = 0.65;
+                threeControls.minDistance = 8;
+                threeControls.maxDistance = 450;
+            }
+
+            // Ambient & Point Light
+            const ambientLight = new THREE.AmbientLight(0x334155, 1.5);
+            threeScene.add(ambientLight);
+            const sunLight = new THREE.PointLight(0xfbbf24, 2.5, 400);
+            threeScene.add(sunLight);
+
+            // Background Starfield
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 1600;
+            const starPos = new Float32Array(starCount * 3);
+            for (let i = 0; i < starCount * 3; i++) {
+                starPos[i] = (Math.random() - 0.5) * 900;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+            const starMat = new THREE.PointsMaterial({ color: 0xcbd5e1, size: 1.1, transparent: true, opacity: 0.75 });
+            threeScene.add(new THREE.Points(starGeo, starMat));
+
+            // Concentric Light-Year Distance Rings on Equatorial Plane (20, 40, 60, 80, 100, 120 Lj)
+            for (let r = 20; r <= 120; r += 20) {
+                const ringGeo = new THREE.RingGeometry(r - 0.18, r + 0.18, 96);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: r === 100 ? 0x6366f1 : 0x1e293b,
+                    side: THREE.DoubleSide,
+                    transparent: true,
+                    opacity: r === 100 ? 0.55 : 0.4
+                });
+                const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+                ringMesh.rotation.x = Math.PI / 2;
+                threeScene.add(ringMesh);
+            }
+
+            // Center: Earth / Sun Origin (25. Nov 1915)
+            const sunGeo = new THREE.SphereGeometry(2.1, 32, 32);
+            const sunMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+            coreSunMesh = new THREE.Mesh(sunGeo, sunMat);
+            threeScene.add(coreSunMesh);
+
+            const sunGlowGeo = new THREE.SphereGeometry(3.8, 32, 32);
+            const sunGlowMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, transparent: true, opacity: 0.25 });
+            threeScene.add(new THREE.Mesh(sunGlowGeo, sunGlowMat));
+
+            // Expanding Light Sphere (Unit radius = 1, scaled dynamically to currentLightRadiusLy)
+            const sphereGeo = new THREE.SphereGeometry(1, 48, 48);
+            const sphereMat = new THREE.MeshPhongMaterial({
+                color: 0x06b6d4,
+                emissive: 0x3b82f6,
+                emissiveIntensity: 0.35,
+                transparent: true,
+                opacity: 0.14,
+                depthWrite: false,
+                side: THREE.DoubleSide
+            });
+            lightSphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+            threeScene.add(lightSphereMesh);
+
+            const wireGeo = new THREE.SphereGeometry(1, 28, 20);
+            const wireMat = new THREE.MeshBasicMaterial({
+                color: 0x22d3ee,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.16
+            });
+            lightWireMesh = new THREE.Mesh(wireGeo, wireMat);
+            threeScene.add(lightWireMesh);
+
+            // Milestone Stars & HTML Labels
+            const labelsOverlay = document.getElementById('star-labels-overlay');
+            labelsOverlay.innerHTML = '';
+            starNodes3D = [];
+
+            // Origin Label
+            const originLabel = document.createElement('div');
+            originLabel.className = 'star-label px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 text-[10px] font-bold text-amber-300 shadow';
+            originLabel.innerHTML = '☀️ Sonne/Erde (1915)';
+            labelsOverlay.appendChild(originLabel);
+            starNodes3D.push({ pos: new THREE.Vector3(0, 0, 0), el: originLabel });
+
+            milestoneStars.forEach(star => {
+                const x = star.distLy * Math.cos(star.angle) * Math.cos(star.elev);
+                const y = star.distLy * Math.sin(star.elev);
+                const z = star.distLy * Math.sin(star.angle) * Math.cos(star.elev);
+                const posVec = new THREE.Vector3(x, y, z);
+
+                // Star Sphere
+                const sGeo = new THREE.SphereGeometry(star.isTarget ? 1.8 : 1.3, 20, 20);
+                const sMat = new THREE.MeshBasicMaterial({ color: star.color });
+                const sMesh = new THREE.Mesh(sGeo, sMat);
+                sMesh.position.copy(posVec);
+                threeScene.add(sMesh);
+
+                // Radial line from center to star
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), posVec]);
+                const lineMat = new THREE.LineBasicMaterial({
+                    color: star.color,
+                    transparent: true,
+                    opacity: star.isTarget ? 0.55 : 0.22
+                });
+                threeScene.add(new THREE.Line(lineGeo, lineMat));
+
+                // HTML Badge
+                const el = document.createElement('div');
+                el.className = `star-label px-2 py-0.5 rounded-lg text-[10px] font-semibold backdrop-blur-sm border shadow-md ${
+                    star.isTarget
+                        ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold'
+                        : 'bg-slate-950/80 border-slate-700/80 text-slate-200'
+                }`;
+                el.innerHTML = `<span style="color:${star.hex}">●</span> ${star.name} <span class="font-mono opacity-80">(${star.distLy.toFixed(2).replace('.', ',')} Lj)</span>`;
+                labelsOverlay.appendChild(el);
+
+                starNodes3D.push({ pos: posVec, el, isTarget: star.isTarget });
+            });
+
+            // Handle Window Resize
+            window.addEventListener('resize', resizeThreeRenderer);
+
+            // Start 3D Animation Loop
+            let pulsePhase = 0;
+            function animateThree() {
+                requestAnimationFrame(animateThree);
+                pulsePhase += 0.03;
+
+                if (lightSphereMesh) {
+                    lightSphereMesh.material.opacity = 0.12 + Math.sin(pulsePhase) * 0.035;
+                    lightWireMesh.rotation.y += 0.0008;
+                }
+
+                if (threeControls) threeControls.update();
+                threeRenderer.render(threeScene, threeCamera);
+
+                // Project 3D coordinates to 2D overlay labels
+                const cWidth = container.clientWidth;
+                const cHeight = container.clientHeight;
+                for (let i = 0; i < starNodes3D.length; i++) {
+                    const node = starNodes3D[i];
+                    const projected = node.pos.clone().project(threeCamera);
+                    if (projected.z > 1) {
+                        node.el.style.opacity = '0';
+                    } else {
+                        const sx = (projected.x * 0.5 + 0.5) * cWidth;
+                        const sy = (-projected.y * 0.5 + 0.5) * cHeight;
+                        node.el.style.left = `${sx}px`;
+                        node.el.style.top = `${sy}px`;
+                        node.el.style.opacity = '1';
+                    }
+                }
+            }
+            animateThree();
+        }
+
+        function setCameraPreset(preset) {
+            if (!threeCamera || !threeControls) return;
+            if (preset === 'overview') {
+                threeCamera.position.set(0, 115, 195);
+                threeControls.target.set(0, 0, 0);
+            } else if (preset === 'front') {
+                const targetStar = starNodes3D.find(n => n.isTarget);
+                if (targetStar) {
+                    const p = targetStar.pos;
+                    threeControls.target.copy(p);
+                    threeCamera.position.set(p.x * 1.35, p.y + 28, p.z * 1.35 + 32);
+                }
+            } else if (preset === 'inner') {
+                threeCamera.position.set(0, 26, 48);
+                threeControls.target.set(0, 0, 0);
+            }
+            threeControls.update();
+        }
+
+        function toggleAutoRotate() {
+            if (!threeControls) return;
+            threeControls.autoRotate = !threeControls.autoRotate;
+            const btn = document.getElementById('btn-autorotate');
+            if (btn) {
+                btn.innerHTML = threeControls.autoRotate
+                    ? '<i class="fa-solid fa-rotate mr-1"></i> Auto-Rotation: An'
+                    : '<i class="fa-solid fa-pause mr-1"></i> Auto-Rotation: Aus';
+            }
+        }
+
+        // Render Horizon Matrix (10 Wellen x 10 Spins = 100 Spins)
+        function renderHorizonMatrix() {
+            const container = document.getElementById('horizon-matrix');
+            if (!container) return;
+
+            const activeHorizon = viewedHorizon !== null ? viewedHorizon : currentHorizon;
+            document.getElementById('calendar-horizon-title').innerText = `Horizon-Kalender (Horizon ${activeHorizon})`;
+            document.getElementById('viewed-horizon-badge').innerText = activeHorizon === currentHorizon ? `Horizon ${activeHorizon} (Aktuell)` : `Horizon ${activeHorizon}`;
+
+            container.innerHTML = '';
+
+            // Header row for Spins (0-9)
+            let headerHtml = `<div class="text-xs font-bold text-slate-500 flex items-center justify-center pb-2">Welle \\ Spin</div>`;
+            for (let sp = 0; sp < 10; sp++) {
+                headerHtml += `
+                    <div class="text-center pb-2 px-1">
+                        <div class="text-xs font-bold text-cyan-400">${sp}: ${spins[sp].name}</div>
+                    </div>
+                `;
+            }
+            container.innerHTML += headerHtml;
+
+            // 10 Wellen (rows)
+            for (let w = 0; w < 10; w++) {
+                let rowHtml = `
+                    <div class="flex flex-col justify-center pr-2 py-1" title="${waves[w].name}: ${waves[w].desc}">
+                        <span class="text-xs font-bold text-indigo-300 truncate">${w}: ${waves[w].name}</span>
+                        <span class="text-[10px] text-slate-500 truncate">${waves[w].desc.split(' ')[0]}</span>
+                    </div>
+                `;
+
+                for (let sp = 0; sp < 10; sp++) {
+                    const cellIndex = w * 10 + sp;
+                    const holiday = getHolidayForCell(w, sp);
+
+                    let cardClasses = "bg-slate-900/65 border-slate-800/90 text-slate-300 hover:bg-slate-800/90 hover:border-slate-600";
+                    let holidayHtml = "";
+
+                    if (holiday) {
+                        cardClasses = "bg-gradient-to-br from-amber-500/25 via-amber-600/15 to-slate-900/90 border-amber-400/60 text-amber-200 hover:border-amber-300 glow-gold";
+                        holidayHtml = `
+                            <div class="mt-1 flex flex-col items-center text-center w-full">
+                                <span class="text-base leading-none drop-shadow">${holiday.emoji}</span>
+                                <span class="text-[9px] font-bold text-amber-300 leading-tight mt-0.5 line-clamp-1 px-0.5">${holiday.shortLabel}</span>
+                            </div>
+                        `;
+                    }
+
+                    rowHtml += `
+                        <div id="grid-cell-${cellIndex}" onclick="openSpinModal(${activeHorizon}, ${w}, ${sp})" class="min-h-[78px] rounded-xl border ${cardClasses} flex flex-col items-center justify-between p-1.5 cursor-pointer transition-all duration-200 hover:scale-[1.04] group relative select-none">
+                            <div class="w-full flex items-center justify-between text-[10px] px-0.5">
+                                <span class="font-mono text-slate-400 group-hover:text-white">${w}.${sp}</span>
+                                ${holiday ? '<i class="fa-solid fa-star text-[9px] text-amber-400"></i>' : ''}
+                            </div>
+                            <div class="text-[11px] font-bold truncate max-w-full text-center ${holiday ? 'text-white' : 'text-slate-200'}">
+                                ${spins[sp].name}
+                            </div>
+                            ${holidayHtml || '<div class="h-3"></div>'}
+                        </div>
+                    `;
+                }
+                container.innerHTML += rowHtml;
+            }
+        }
+
+        function highlightCurrentGridCell(currentSpinInHorizon) {
+            document.querySelectorAll('.grid-cell-active').forEach(el => {
+                el.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-500/25', 'grid-cell-active');
+            });
+
+            if (currentSpinInHorizon >= 0) {
+                const activeCell = document.getElementById(`grid-cell-${currentSpinInHorizon}`);
+                if (activeCell) {
+                    activeCell.classList.add('ring-2', 'ring-cyan-400', 'bg-cyan-500/25', 'grid-cell-active');
+                }
+            }
+        }
+
+        // Render Waves List
+        function renderWavesList() {
+            const list = document.getElementById('waves-list');
+            list.innerHTML = waves.map(w => `
+                <div class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-center justify-between hover:border-indigo-500/40 transition-all">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold text-xs orbitron">
+                            ${w.id}
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-white text-sm">Welle ${w.id}: ${w.name}</h4>
+                            <p class="text-xs text-slate-400">${w.desc}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Holidays List
+        function renderHolidaysList() {
+            const list = document.getElementById('holidays-list');
+            list.innerHTML = holidays.map(hol => `
+                <div onclick="openSpinModal(${viewedHorizon !== null ? viewedHorizon : currentHorizon}, ${hol.wave}, ${hol.spin})" class="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 flex items-start space-x-3 hover:border-amber-500/50 cursor-pointer transition-all">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-lg shrink-0 mt-0.5">
+                        ${hol.emoji}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h4 class="font-semibold text-white text-sm">${hol.name}</h4>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">${hol.code}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1">${hol.desc}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Modal Controls (Custom Modals Only)
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('opacity-0');
+            modal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        // Compute Gregorian Date Range for a given ART Spin
+        function getGregorianEquivalent(horizonIdx, waveIdx, spinIdx) {
+            const totalSpinsFromEpoch = horizonIdx * 100 + waveIdx * 10 + spinIdx;
+            const spinDurationMs = clockMode === 'bio' ? 86400 * 1000 : 100000 * 1000;
+            const startMs = epochMs + totalSpinsFromEpoch * spinDurationMs;
+            const endMs = startMs + spinDurationMs;
+
+            const fmtOptions = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' };
+            const startStr = new Date(startMs).toLocaleString('de-DE', fmtOptions) + ' UTC';
+            const endStr = new Date(endMs).toLocaleString('de-DE', fmtOptions) + ' UTC';
+            return `${startStr} – ${endStr}`;
+        }
+
+        // Open Spin Detail Modal
+        function openSpinModal(horizonIdx, waveIdx, spinIdx) {
+            const wave = waves[waveIdx];
+            const spin = spins[spinIdx];
+            const holiday = getHolidayForCell(waveIdx, spinIdx);
+            const totalSpins = horizonIdx * 100 + waveIdx * 10 + spinIdx;
+            const gregorianSpan = getGregorianEquivalent(horizonIdx, waveIdx, spinIdx);
+
+            let holidaySection = '';
+            if (holiday) {
+                holidaySection = `
+                    <div class="p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-400/50 space-y-1.5 glow-gold">
+                        <div class="flex items-center gap-2 text-amber-300 font-bold text-sm">
+                            <span class="text-xl">${holiday.emoji}</span>
+                            <span>${holiday.name} (${holiday.code})</span>
+                        </div>
+                        <p class="text-xs text-amber-100/90 leading-relaxed">${holiday.desc}</p>
+                    </div>
+                `;
+            }
+
+            const content = `
+                <div class="flex items-center space-x-3">
+                    <div class="w-14 h-14 rounded-2xl ${holiday ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300'} border flex flex-col items-center justify-center orbitron font-bold">
+                        <span class="text-base">${horizonIdx}.${waveIdx}.${spinIdx}</span>
+                        ${holiday ? `<span class="text-sm leading-none mt-0.5">${holiday.emoji}</span>` : ''}
+                    </div>
+                    <div>
+                        <h2 class="orbitron text-lg sm:text-xl font-bold text-white">${spin.name} in Welle ${wave.name}</h2>
+                        <p class="text-xs text-cyan-400">Horizon ${horizonIdx} &bull; Gesamt-Spin #${totalSpins.toLocaleString('de-DE')} n. ART</p>
+                    </div>
+                </div>
+
+                <div class="space-y-3 text-sm text-slate-300">
+                    ${holidaySection}
+                    <div class="p-4 rounded-2xl bg-slate-900/85 border border-slate-800 space-y-2.5">
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-slate-400 text-xs">Welle (Teilchen):</span>
+                            <span class="font-semibold text-indigo-300 text-right">Welle ${waveIdx} – ${wave.name}</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-slate-400 text-xs">Spin (Atomkern):</span>
+                            <span class="font-semibold text-amber-300 text-right">Spin ${spinIdx} – ${spin.name} (${spin.mass})</span>
+                        </div>
+                        <div class="flex justify-between items-center gap-2">
+                            <span class="text-slate-400 text-xs">Dauer des Spins:</span>
+                            <span class="font-mono text-xs text-cyan-300 text-right">100.000 Quanten (${clockMode === 'bio' ? '24h 00m' : '27h 46m 40s'})</span>
+                        </div>
+                        <div class="pt-1 border-t border-slate-800/80">
+                            <span class="text-slate-400 text-[11px] block">Gregorianisches Zeitfenster (${clockMode === 'bio' ? 'Biologisch' : 'Echt-SI'}):</span>
+                            <span class="font-mono text-xs text-slate-200">${gregorianSpan}</span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 rounded-2xl bg-slate-900/85 border border-slate-800">
+                        <span class="text-slate-400 text-xs block mb-1">Physikalische Bedeutung:</span>
+                        <p class="text-xs text-slate-300 leading-relaxed"><strong class="text-indigo-300">${wave.name}:</strong> ${wave.desc}.<br><strong class="text-amber-300">${spin.name}:</strong> ${spin.desc}</p>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button onclick="closeModal('spin-modal')" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition-all border border-slate-700">
+                        Schließen
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('spin-modal-content').innerHTML = content;
+            openModal('spin-modal');
+        }
+
+        // Animated Spacetime Particle & Grid Background
+        function initSpacetimeCanvas() {
+            const canvas = document.getElementById('spacetime-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            const particles = [];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            for (let i = 0; i < 55; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 0.35,
+                    vy: (Math.random() - 0.5) * 0.35,
+                    r: Math.random() * 1.8 + 0.6,
+                    color: i % 3 === 0 ? '#06b6d4' : (i % 3 === 1 ? '#818cf8' : '#f59e0b')
+                });
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, width, height);
+
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
+                ctx.lineWidth = 1;
+                const gridSize = 90;
+                for (let x = 0; x < width; x += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < height; y += gridSize) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(width, y);
+                    ctx.stroke();
+                }
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    if (p.x < 0) p.x = width;
+                    if (p.x > width) p.x = 0;
+                    if (p.y < 0) p.y = height;
+                    if (p.y > height) p.y = 0;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.fill();
+
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p2 = particles[j];
+                        const dx = p.x - p2.x;
+                        const dy = p.y - p2.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 130) {
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(p2.x, p2.y);
+                            ctx.strokeStyle = `rgba(99, 102, 241, ${(1 - dist / 130) * 0.14})`;
+                            ctx.stroke();
+                        }
+                    }
+                }
+                requestAnimationFrame(draw);
+            }
+            draw();
+        }
+
+        // Close modals on ESC or backdrop click
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal('info-modal');
+                closeModal('spin-modal');
+                if (is3DFullscreenFallback) exit3DFullscreen();
+            }
+        });
+        document.getElementById('info-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'info-modal') closeModal('info-modal');
+        });
+        document.getElementById('spin-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'spin-modal') closeModal('spin-modal');
+        });
+    </script>
+</body>
+</html>
